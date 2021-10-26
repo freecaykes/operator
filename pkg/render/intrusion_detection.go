@@ -311,8 +311,11 @@ func (c *intrusionDetectionComponent) intrusionDetectionClusterRole() *rbacv1.Cl
 		},
 		{
 			APIGroups: []string{""},
-			Resources: []string{"podtemplates"},
-			Verbs:     []string{"get"},
+			Resources: []string{
+				"podtemplates",
+				"deployments",
+			},
+			Verbs: []string{"get"},
 		},
 		{
 			APIGroups: []string{
