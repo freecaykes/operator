@@ -57,12 +57,13 @@ const (
 	IntrusionDetectionInstallerJobName = "intrusion-detection-es-job-installer"
 	IntrusionDetectionControllerName   = "intrusion-detection-controller"
 
-	ADJobPodTemplateBaseName     = "tigera.io.detectors"
-	adDetectorPrefixName         = "tigera.io.detector."
-	adDetectorServiceAccountName = "anomaly-detectors"
-	adDetectionJobsDefaultPeriod = 15 * time.Minute
-	ADResourceGroup              = "detectors.tigera.io"
-	ADDetectorsModelResourceName = "models"
+	ADJobPodTemplateBaseName        = "tigera.io.detectors"
+	adDetectorPrefixName            = "tigera.io.detector."
+	adDetectorServiceAccountName    = "anomaly-detectors"
+	adDetectionJobsDefaultPeriod    = 15 * time.Minute
+	ADResourceGroup                 = "detectors.tigera.io"
+	ADDetectorsModelResourceName    = "models"
+	ADDetectorsMetadataResourceName = "metadata"
 
 	ADAPIObjectName     = "anomaly-detection-api"
 	ADAPIObjectPortName = "anomaly-detection-api-https"
@@ -1402,6 +1403,19 @@ func (c *intrusionDetectionComponent) adDetectorAccessRole() *rbacv1.Role {
 				},
 				Resources: []string{
 					ADDetectorsModelResourceName,
+				},
+				Verbs: []string{
+					"get",
+					"create",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					ADResourceGroup,
+				},
+				Resources: []string{
+					ADDetectorsMetadataResourceName,
 				},
 				Verbs: []string{
 					"get",
