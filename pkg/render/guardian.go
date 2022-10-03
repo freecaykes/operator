@@ -45,7 +45,8 @@ const (
 	GuardianClusterRoleBindingName = GuardianName
 	GuardianDeploymentName         = GuardianName
 	GuardianServiceName            = "tigera-guardian"
-	GuardianVolumeName             = "tigera-guardian-certs"
+	GuardianCertsVolumeName        = "tigera-guardian-certs"
+	GuardianCertsVolumePath        = "/certs"
 	GuardianSecretName             = "tigera-managed-cluster-connection"
 	GuardianTargetPort             = 8080
 	GuardianPolicyName             = networkpolicy.TigeraComponentPolicyPrefix + "guardian-access"
@@ -249,7 +250,7 @@ func (c *GuardianComponent) volumes() []corev1.Volume {
 	return []corev1.Volume{
 		c.cfg.TrustedCertBundle.Volume(),
 		{
-			Name: GuardianVolumeName,
+			Name: GuardianCertsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: GuardianSecretName,
@@ -281,6 +282,7 @@ func (c *GuardianComponent) container() []corev1.Container {
 				{Name: "GUARDIAN_LOGLEVEL", Value: "INFO"},
 				{Name: "GUARDIAN_VOLTRON_URL", Value: c.cfg.URL},
 				{Name: "GUARDIAN_VOLTRON_CA_TYPE", Value: string(c.cfg.TunnelCAType)},
+				{Name: "GUARDIAN_CERT_PATH", Value: GuardianCertsVolumePath},
 				{Name: "GUARDIAN_PACKET_CAPTURE_CA_BUNDLE_PATH", Value: c.cfg.TrustedCertBundle.MountPath()},
 				{Name: "GUARDIAN_PROMETHEUS_CA_BUNDLE_PATH", Value: c.cfg.TrustedCertBundle.MountPath()},
 				{Name: "GUARDIAN_FIPS_MODE_ENABLED", Value: operatorv1.IsFIPSModeEnabledString(c.cfg.Installation.FIPSMode)},
@@ -315,8 +317,8 @@ func (c *GuardianComponent) volumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		c.cfg.TrustedCertBundle.VolumeMount(c.SupportedOSType()),
 		{
-			Name:      GuardianVolumeName,
-			MountPath: "/certs/",
+			Name:      GuardianCertsVolumeName,
+			MountPath: GuardianCertsVolumePath,
 			ReadOnly:  true,
 		},
 	}
