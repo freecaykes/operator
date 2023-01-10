@@ -128,7 +128,7 @@ func (c *GuardianComponent) Objects() ([]client.Object, []client.Object) {
 		// Add tigera-manager service account for impersonation
 		CreateNamespace(ManagerNamespace, c.cfg.Installation.KubernetesProvider, PSSRestricted),
 		managerServiceAccount(),
-		managerClusterRole(false, true, c.cfg.Openshift, cfg.DNSLocalCacheState),
+		managerClusterRole(false, true, c.cfg.Openshift),
 		managerClusterRoleBinding(),
 		managerClusterWideSettingsGroup(),
 		managerUserSpecificSettingsGroup(),

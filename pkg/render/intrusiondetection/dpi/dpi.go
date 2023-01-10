@@ -347,7 +347,7 @@ func (d *dpiComponent) dpiAllowTigeraPolicy() *v3.NetworkPolicy {
 			Destination: networkpolicy.KubeAPIServerServiceSelectorEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendServiceSelectorDNSEgressRules(egressRules, d.cfg.Openshift, cfg.DNSLocalCacheState)
+	egressRules = networkpolicy.AppendServiceSelectorDNSEgressRules(egressRules, d.cfg.Openshift)
 
 	if d.cfg.ManagedCluster {
 		egressRules = append(egressRules, v3.Rule{

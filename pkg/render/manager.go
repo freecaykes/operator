@@ -184,7 +184,7 @@ func (c *managerComponent) Objects() ([]client.Object, []client.Object) {
 
 	objs = append(objs,
 		managerServiceAccount(),
-		managerClusterRole(c.cfg.ManagementCluster != nil, false, c.cfg.Openshift, cfg.DNSLocalCacheState),
+		managerClusterRole(c.cfg.ManagementCluster != nil, false, c.cfg.Openshift),
 		managerClusterRoleBinding(),
 		managerClusterWideSettingsGroup(),
 		managerUserSpecificSettingsGroup(),

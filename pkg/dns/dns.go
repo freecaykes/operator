@@ -78,7 +78,7 @@ func GetServiceDNSNames(name, namespace, clusterDomain string) []string {
 	}
 }
 
-func GetClusterDNSService(ctx context.Context, isOpenShift bool) (*corev1.Service, error) {
+func GetClusterDNSService(ctx context.Context, k8sClient client.Client, isOpenShift bool) (*corev1.Service, error) {
 
 	clusterDNSServiceName := "kube-dns"
 	if isOpenShift {
@@ -86,7 +86,7 @@ func GetClusterDNSService(ctx context.Context, isOpenShift bool) (*corev1.Servic
 	}
 
 	clusterDNSService := &corev1.Service{}
-	err := r.client.Get(ctx, client.ObjectKey{Name: clusterDNSServiceName}, clusterDNSService)
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: clusterDNSServiceName}, clusterDNSService)
 
 	if err != nil {
 		return nil, err
