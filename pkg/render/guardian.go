@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2020-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"github.com/tigera/api/pkg/lib/numorstring"
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/components"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/ptr"
 	rmeta "github.com/tigera/operator/pkg/render/common/meta"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
@@ -79,13 +80,14 @@ func GuardianPolicy(cfg *GuardianConfiguration) (Component, error) {
 
 // GuardianConfiguration contains all the config information needed to render the component.
 type GuardianConfiguration struct {
-	URL               string
-	PullSecrets       []*corev1.Secret
-	Openshift         bool
-	Installation      *operatorv1.InstallationSpec
-	TunnelSecret      *corev1.Secret
-	TrustedCertBundle certificatemanagement.TrustedBundle
-	TunnelCAType      operatorv1.CAType
+	URL                string
+	PullSecrets        []*corev1.Secret
+	Openshift          bool
+	Installation       *operatorv1.InstallationSpec
+	TunnelSecret       *corev1.Secret
+	TrustedCertBundle  certificatemanagement.TrustedBundle
+	TunnelCAType       operatorv1.CAType
+	DNSLocalCacheState dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -126,7 +128,7 @@ func (c *GuardianComponent) Objects() ([]client.Object, []client.Object) {
 		// Add tigera-manager service account for impersonation
 		CreateNamespace(ManagerNamespace, c.cfg.Installation.KubernetesProvider, PSSRestricted),
 		managerServiceAccount(),
-		managerClusterRole(false, true, c.cfg.Openshift),
+		managerClusterRole(false, true, c.cfg.Openshift, cfg.DNSLocalCacheState),
 		managerClusterRoleBinding(),
 		managerClusterWideSettingsGroup(),
 		managerUserSpecificSettingsGroup(),
@@ -372,7 +374,7 @@ func guardianAllowTigeraPolicy(cfg *GuardianConfiguration) (*v3.NetworkPolicy, e
 			Destination: PacketCaptureEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift, cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,

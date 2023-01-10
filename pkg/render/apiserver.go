@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/components"
 	"github.com/tigera/operator/pkg/controller/k8sapi"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/ptr"
 	rcomp "github.com/tigera/operator/pkg/render/common/components"
 	rmeta "github.com/tigera/operator/pkg/render/common/meta"
@@ -117,6 +118,7 @@ type APIServerConfiguration struct {
 	PullSecrets                 []*corev1.Secret
 	Openshift                   bool
 	TunnelCASecret              certificatemanagement.KeyPairInterface
+	DNSLocalNodeCacheState      dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -394,7 +396,7 @@ func (c *apiServerComponent) apiServerServiceAccount() *corev1.ServiceAccount {
 
 func allowTigeraAPIServerPolicy(cfg *APIServerConfiguration) *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift, cfg.DNSLocalNodeCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,

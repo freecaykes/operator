@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -144,20 +145,21 @@ type EksCloudwatchLogConfig struct {
 
 // FluentdConfiguration contains all the config information needed to render the component.
 type FluentdConfiguration struct {
-	LogCollector     *operatorv1.LogCollector
-	ESSecrets        []*corev1.Secret
-	ESClusterConfig  *relasticsearch.ClusterConfig
-	S3Credential     *S3Credential
-	SplkCredential   *SplunkCredential
-	Filters          *FluentdFilters
-	EKSConfig        *EksCloudwatchLogConfig
-	PullSecrets      []*corev1.Secret
-	Installation     *operatorv1.InstallationSpec
-	ClusterDomain    string
-	OSType           rmeta.OSType
-	MetricsServerTLS certificatemanagement.KeyPairInterface
-	TrustedBundle    certificatemanagement.TrustedBundle
-	ManagedCluster   bool
+	LogCollector       *operatorv1.LogCollector
+	ESSecrets          []*corev1.Secret
+	ESClusterConfig    *relasticsearch.ClusterConfig
+	S3Credential       *S3Credential
+	SplkCredential     *SplunkCredential
+	Filters            *FluentdFilters
+	EKSConfig          *EksCloudwatchLogConfig
+	PullSecrets        []*corev1.Secret
+	Installation       *operatorv1.InstallationSpec
+	ClusterDomain      string
+	OSType             rmeta.OSType
+	MetricsServerTLS   certificatemanagement.KeyPairInterface
+	TrustedBundle      certificatemanagement.TrustedBundle
+	ManagedCluster     bool
+	DNSLocalCacheState dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -1123,7 +1125,7 @@ func (c *fluentdComponent) allowTigeraPolicy() *v3.NetworkPolicy {
 				NotPorts:          networkpolicy.Ports(5554),
 			},
 		})
-		egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift)
+		egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift, c.cfg.DNSLocalCacheState)
 	}
 	egressRules = append(egressRules, v3.Rule{
 		Action: v3.Allow,

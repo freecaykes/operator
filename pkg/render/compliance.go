@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/components"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/authentication"
 	"github.com/tigera/operator/pkg/render/common/configmap"
 	relasticsearch "github.com/tigera/operator/pkg/render/common/elasticsearch"
@@ -93,6 +94,7 @@ type ComplianceConfiguration struct {
 	KeyValidatorConfig          authentication.KeyValidatorConfig
 	ClusterDomain               string
 	HasNoLicense                bool
+	DNSLocalCacheState          dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -1413,7 +1415,7 @@ func (c *complianceComponent) complianceAccessAllowTigeraNetworkPolicy() *v3.Net
 		},
 	}
 
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 
 	if c.cfg.ManagementClusterConnection == nil {
 		egressRules = append(egressRules, v3.Rule{
@@ -1460,7 +1462,7 @@ func (c *complianceComponent) complianceServerAllowTigeraNetworkPolicy() *v3.Net
 		},
 	}
 
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 
 	egressRules = append(egressRules, []v3.Rule{
 		{

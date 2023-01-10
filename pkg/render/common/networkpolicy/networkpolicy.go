@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
 	"github.com/tigera/api/pkg/lib/numorstring"
+	"github.com/tigera/operator/pkg/dns"
 )
 
 const TigeraComponentTierName = "allow-tigera"
@@ -33,7 +35,7 @@ var UDPProtocol = numorstring.ProtocolFromString(numorstring.ProtocolUDP)
 var HighPrecedenceOrder = 1.0
 
 // AppendDNSEgressRules appends a rule to the provided slice that allows DNS egress. The appended rule utilizes label selectors and ports.
-func AppendDNSEgressRules(egressRules []v3.Rule, openShift bool) []v3.Rule {
+func AppendDNSEgressRules(egressRules []v3.Rule, openShift bool, dnsNodeLocalCacheState dns.DNSNodeLocalCacheState) []v3.Rule {
 	if openShift {
 		egressRules = append(egressRules, []v3.Rule{
 			{
@@ -56,7 +58,7 @@ func AppendDNSEgressRules(egressRules []v3.Rule, openShift bool) []v3.Rule {
 			},
 		}...)
 	} else {
-		egressRules = append(egressRules, v3.Rule{
+		accessDNSRule := v3.Rule{
 			Action:   v3.Allow,
 			Protocol: &UDPProtocol,
 			Destination: v3.EntityRule{
@@ -64,7 +66,19 @@ func AppendDNSEgressRules(egressRules []v3.Rule, openShift bool) []v3.Rule {
 				Selector:          "k8s-app == 'kube-dns'",
 				Ports:             Ports(53),
 			},
-		})
+		}
+
+		if dnsNodeLocalCacheState.Enabled {
+			accessDNSRule = v3.Rule{
+				Action:   v3.Allow,
+				Protocol: &UDPProtocol,
+				Destination: v3.EntityRule{
+					Nets:  []string{dnsNodeLocalCacheState.ClusterDNSServiceIP + "/32"},
+					Ports: Ports(53),
+				},
+			}
+		}
+		egressRules = append(egressRules, accessDNSRule)
 	}
 
 	return egressRules
@@ -198,4 +212,15 @@ var PrometheusEntityRule = v3.EntityRule{
 var PrometheusSourceEntityRule = v3.EntityRule{
 	NamespaceSelector: "name == 'tigera-prometheus'",
 	Selector:          PrometheusSelector,
+}
+
+func ToRuntimeObjects(policies ...*v3.NetworkPolicy) []client.Object {
+	var objs []client.Object
+	for _, policy := range policies {
+		if policy == nil {
+			continue
+		}
+		objs = append(objs, policy)
+	}
+	return objs
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/tigera/operator/pkg/common"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 	"github.com/tigera/operator/pkg/render/tiers"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +55,8 @@ func Add(mgr manager.Manager, opts options.AddOptions) error {
 		return nil
 	}
 
+	// dnsCacheState := utils.NodeLocalDNSCacheState{}
+
 	reconciler := newReconciler(mgr, opts)
 
 	c, err := controller.New("tiers-controller", mgr, controller.Options{Reconciler: reconciler})
@@ -72,6 +76,8 @@ func Add(mgr manager.Manager, opts options.AddOptions) error {
 		{Name: tiers.ClusterDNSPolicyName, Namespace: "openshift-dns"},
 		{Name: tiers.ClusterDNSPolicyName, Namespace: "kube-system"},
 	})
+
+	// go utils.WatchNodeLocalDNSCache(c, k8sClient, mgr.GetClient(), log, &dnsCacheState)
 
 	return add(mgr, c)
 }
@@ -136,7 +142,23 @@ func (r *ReconcileTiers) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	component := tiers.Tiers(&tiers.Config{Openshift: r.provider == operatorv1.ProviderOpenShift})
+	isOpenShift := r.provider == operatorv1.ProviderOpenShift
+	dnsCacheState := &dns.DNSNodeLocalCacheState{}
+	clusterDNSService, err := r.getClusterDNSService(ctx, isOpenShift)
+	if err != nil {
+		dnsCacheState.ClusterDNSServiceIP, err = dns.GetClusterDomain(dns.DefaultResolveConfPath)
+		if err != nil {
+			dnsCacheState.Enabled = false
+		}
+	} else {
+		dnsCacheState.ClusterDNSServiceIP = clusterDNSService.Spec.ClusterIP
+	}
+
+	component := tiers.Tiers(
+		&tiers.Config{
+			Openshift:          isOpenShift,
+			DNSLocalCacheState: dnsCacheState,
+		})
 
 	componentHandler := utils.NewComponentHandler(log, r.client, r.scheme, nil)
 	err = componentHandler.CreateOrUpdateOrDelete(ctx, component, nil)
@@ -146,4 +168,20 @@ func (r *ReconcileTiers) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileTiers) getClusterDNSService(ctx context.Context, isOpenShift bool) (*corev1.Service, error) {
+	clusterDNSServiceName := "kube-dns"
+	if isOpenShift {
+		clusterDNSServiceName = "openshift-dns"
+	}
+
+	clusterDNSService := &corev1.Service{}
+	err := r.client.Get(ctx, client.ObjectKey{Name: clusterDNSServiceName}, clusterDNSService)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterDNSService, err
 }

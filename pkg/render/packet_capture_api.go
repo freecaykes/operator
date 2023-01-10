@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2021-2023 Tigera, Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package render
 
 import (
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +65,7 @@ type PacketCaptureApiConfiguration struct {
 	TrustedBundle               certificatemanagement.TrustedBundle
 	ClusterDomain               string
 	ManagementClusterConnection *operatorv1.ManagementClusterConnection
+	DNSLocalCacheState          dns.DNSNodeLocalCacheState
 }
 
 type packetCaptureApiComponent struct {
@@ -327,7 +329,7 @@ func allowTigeraPolicy(cfg *PacketCaptureApiConfiguration) *v3.NetworkPolicy {
 			Destination: networkpolicy.KubeAPIServerEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Openshift, cfg.DNSLocalCacheState)
 	if !managedCluster {
 		egressRules = append(egressRules, v3.Rule{
 			Action:      v3.Allow,

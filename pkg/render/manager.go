@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2020-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/common"
 	"github.com/tigera/operator/pkg/components"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/authentication"
 	tigerakvc "github.com/tigera/operator/pkg/render/common/authentication/tigera/key_validator_config"
 	"github.com/tigera/operator/pkg/render/common/configmap"
@@ -124,6 +125,7 @@ type ManagerConfiguration struct {
 	Replicas                *int32
 	Compliance              *operatorv1.Compliance
 	ComplianceLicenseActive bool
+	DNSLocalCacheState      dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -182,7 +184,7 @@ func (c *managerComponent) Objects() ([]client.Object, []client.Object) {
 
 	objs = append(objs,
 		managerServiceAccount(),
-		managerClusterRole(c.cfg.ManagementCluster != nil, false, c.cfg.Openshift),
+		managerClusterRole(c.cfg.ManagementCluster != nil, false, c.cfg.Openshift, cfg.DNSLocalCacheState),
 		managerClusterRoleBinding(),
 		managerClusterWideSettingsGroup(),
 		managerUserSpecificSettingsGroup(),
@@ -749,7 +751,7 @@ func (c *managerComponent) managerAllowTigeraNetworkPolicy() *v3.NetworkPolicy {
 			Destination: networkpolicy.KubeAPIServerServiceSelectorEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, v3.Rule{
 		Action:      v3.Allow,
 		Protocol:    &networkpolicy.TCPProtocol,

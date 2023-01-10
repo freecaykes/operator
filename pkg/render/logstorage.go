@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2020-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -204,6 +204,7 @@ type ElasticsearchConfiguration struct {
 	UnusedTLSSecret             *corev1.Secret
 	ApplyTrial                  bool
 	KeyStoreSecret              *corev1.Secret
+	DNSLocalCacheState          dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -605,7 +606,7 @@ func (es elasticsearchComponent) podTemplate() corev1.PodTemplateSpec {
 	// For OpenShift, set the user to run as non-root specifically. This prevents issues with the elasticsearch
 	// image which requires that root users have permissions to run CHROOT which is not given in OpenShift.
 	// TODO: Consider removing for ES >= 8.0.0. See https://github.com/elastic/cloud-on-k8s/issues/2791 for considerations.
-	if es.cfg.Provider == operatorv1.ProviderOpenShift {
+	if es.cfg.Provider == operatorv1.ProviderOpenShift, es.cfg.DNSLocalCacheState {
 		esContainer.SecurityContext = &corev1.SecurityContext{
 			RunAsUser: ptr.Int64ToPtr(1000),
 		}
@@ -1760,7 +1761,7 @@ func (es elasticsearchComponent) oidcUserRoleBinding() client.Object {
 // Allow the elastic-operator to communicate with API server, DNS and elastic search.
 func (es *elasticsearchComponent) eckOperatorAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift, es.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,
@@ -1793,7 +1794,7 @@ func (es *elasticsearchComponent) eckOperatorAllowTigeraPolicy() *v3.NetworkPoli
 // Allow access to Elasticsearch client nodes from Kibana, ECK Operator and ES Gateway.
 func (es *elasticsearchComponent) elasticsearchAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift, es.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,
@@ -1903,7 +1904,7 @@ func (es *elasticsearchComponent) kibanaAllowTigeraPolicy() *v3.NetworkPolicy {
 			Destination: ElasticsearchEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift, es.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,
@@ -1970,7 +1971,7 @@ func (es *elasticsearchComponent) kibanaAllowTigeraPolicy() *v3.NetworkPolicy {
 
 func (es *elasticsearchComponent) esCuratorAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, es.cfg.Provider == operatorv1.ProviderOpenShift, es.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, v3.Rule{
 		Action:      v3.Allow,
 		Protocol:    &networkpolicy.TCPProtocol,

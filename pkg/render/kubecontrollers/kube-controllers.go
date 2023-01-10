@@ -1,4 +1,4 @@
-// Copyright (c) 2019,2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019,2022-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -88,6 +89,8 @@ type KubeControllersConfiguration struct {
 	ManagerInternalSecret        certificatemanagement.KeyPairInterface
 	KubeControllersGatewaySecret *corev1.Secret
 	TrustedBundle                certificatemanagement.TrustedBundle
+
+	DNSLocalCacheState dns.DNSNodeLocalCacheState
 
 	// Whether or not the cluster supports pod security policies.
 	UsePSP bool
@@ -619,7 +622,7 @@ func (c *kubeControllersComponent) kubeControllersVolumes() []corev1.Volume {
 
 func kubeControllersAllowTigeraPolicy(cfg *KubeControllersConfiguration) *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift, cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:   v3.Allow,
@@ -666,7 +669,7 @@ func esKubeControllersAllowTigeraPolicy(cfg *KubeControllersConfiguration) *v3.N
 	}
 
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift, cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:   v3.Allow,

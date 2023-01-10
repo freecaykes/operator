@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2021-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/intrusiondetection/dpi"
 	"github.com/tigera/operator/pkg/render/logstorage/esmetrics"
 
@@ -78,6 +79,7 @@ type Config struct {
 	TrustedBundle              certificatemanagement.TrustedBundle
 	ClusterDomain              string
 	EsAdminUserName            string
+	DNSLocalCacheState         dns.DNSNodeLocalCacheState
 }
 
 func (e *esGateway) ResolveImages(is *operatorv1.ImageSet) error {
@@ -306,7 +308,7 @@ func (e esGateway) esGatewayService() *corev1.Service {
 // Allow access to ES Gateway from components that need to talk to Elasticsearch or Kibana.
 func (e *esGateway) esGatewayAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, e.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, e.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift, e.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,

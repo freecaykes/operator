@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/common"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render"
 	rmeta "github.com/tigera/operator/pkg/render/common/meta"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
@@ -28,7 +29,9 @@ import (
 )
 
 const (
-	ClusterDNSPolicyName = networkpolicy.TigeraComponentPolicyPrefix + "cluster-dns"
+	ClusterDNSPolicyName               = networkpolicy.TigeraComponentPolicyPrefix + "cluster-dns"
+	localDNSCacheAccessPolicyName      = networkpolicy.TigeraComponentPolicyPrefix + "local-dns-access"
+	clusterFromLocalDNAcessSPolicyName = networkpolicy.TigeraComponentPolicyPrefix + "cluster-from-local-dns-access"
 )
 
 var DNSIngressNamespaceSelector = createDNSIngressNamespaceSelector(
@@ -52,7 +55,8 @@ func Tiers(cfg *Config) render.Component {
 }
 
 type Config struct {
-	Openshift bool
+	Openshift          bool
+	DNSLocalCacheState *dns.DNSNodeLocalCacheState
 }
 
 type tiersComponent struct {
@@ -66,10 +70,19 @@ func (t tiersComponent) ResolveImages(is *operatorv1.ImageSet) error {
 func (t tiersComponent) Objects() ([]client.Object, []client.Object) {
 	objsToCreate := []client.Object{
 		t.allowTigeraTier(),
-		t.allowTigeraClusterDNSPolicy(),
 	}
 
-	return objsToCreate, nil
+	objsToDelete := []client.Object{}
+
+	if t.cfg.DNSLocalCacheState != nil {
+		objsToCreate = append(objsToCreate, networkpolicy.ToRuntimeObjects(t.allowTigeraClusterDNSNodeLocalCachePolicy()...)...)
+		objsToDelete = append(objsToDelete, t.allowTigeraClusterDNSPolicy())
+	} else {
+		objsToCreate = append(objsToDelete, t.allowTigeraClusterDNSPolicy())
+		objsToDelete = append(objsToCreate, networkpolicy.ToRuntimeObjects(t.allowTigeraClusterDNSNodeLocalCachePolicy()...)...)
+	}
+
+	return objsToCreate, objsToDelete
 }
 
 func (t tiersComponent) Ready() bool {
@@ -96,16 +109,7 @@ func (t tiersComponent) allowTigeraTier() *v3.Tier {
 }
 
 func (t tiersComponent) allowTigeraClusterDNSPolicy() *v3.NetworkPolicy {
-	var dnsPolicySelector string
-	var dnsPolicyNamespace string
-	if t.cfg.Openshift {
-		dnsPolicySelector = "dns.operator.openshift.io/daemonset-dns == 'default'"
-		dnsPolicyNamespace = "openshift-dns"
-	} else {
-		dnsPolicySelector = "k8s-app == 'kube-dns'"
-		dnsPolicyNamespace = "kube-system"
-	}
-
+	dnsPolicyNamespace, dnsPolicySelector := t.getPolicyNamespaceAndSelector()
 	return &v3.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "projectcalico.org/v3"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,6 +139,46 @@ func (t tiersComponent) allowTigeraClusterDNSPolicy() *v3.NetworkPolicy {
 			},
 			Types: []v3.PolicyType{v3.PolicyTypeIngress, v3.PolicyTypeEgress},
 		},
+	}
+}
+
+func (t tiersComponent) allowTigeraClusterDNSNodeLocalCachePolicy() []*v3.NetworkPolicy {
+	dnsPolicyNamespace, dnsPolicySelector := t.getPolicyNamespaceAndSelector()
+
+	localDNSCacheAccess := &v3.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "projectcalico.org/v3"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      localDNSCacheAccessPolicyName,
+			Namespace: dnsPolicyNamespace,
+		},
+		Spec: v3.NetworkPolicySpec{
+			Order:    &networkpolicy.HighPrecedenceOrder,
+			Tier:     networkpolicy.TigeraComponentTierName,
+			Selector: dnsPolicySelector,
+		},
+	}
+
+	kubeDNSAcceptRequestAccess := &v3.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{Kind: "NetworkPolicy", APIVersion: "projectcalico.org/v3"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterFromLocalDNAcessSPolicyName,
+			Namespace: dnsPolicyNamespace,
+		},
+		Spec: v3.NetworkPolicySpec{
+			Order:    &networkpolicy.HighPrecedenceOrder,
+			Tier:     networkpolicy.TigeraComponentTierName,
+			Selector: dnsPolicySelector,
+		},
+	}
+
+	return []*v3.NetworkPolicy{localDNSCacheAccess, kubeDNSAcceptRequestAccess}
+}
+
+func (t tiersComponent) getPolicyNamespaceAndSelector() (string, string) {
+	if t.cfg.Openshift {
+		return "dns.operator.openshift.io/daemonset-dns == 'default'", "openshift-dns"
+	} else {
+		return "k8s-app == 'kube-dns'", "kube-system"
 	}
 }
 

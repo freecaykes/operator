@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	operatorv1 "github.com/tigera/operator/api/v1"
 	"github.com/tigera/operator/pkg/common"
 	"github.com/tigera/operator/pkg/components"
+	"github.com/tigera/operator/pkg/dns"
 	rmeta "github.com/tigera/operator/pkg/render/common/meta"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 	"github.com/tigera/operator/pkg/render/common/podaffinity"
@@ -61,13 +62,14 @@ func Dex(cfg *DexComponentConfiguration) Component {
 
 // DexComponentConfiguration contains all the config information needed to render the component.
 type DexComponentConfiguration struct {
-	PullSecrets   []*corev1.Secret
-	Openshift     bool
-	Installation  *operatorv1.InstallationSpec
-	DexConfig     DexConfig
-	ClusterDomain string
-	DeleteDex     bool
-	TLSKeyPair    certificatemanagement.KeyPairInterface
+	PullSecrets        []*corev1.Secret
+	Openshift          bool
+	Installation       *operatorv1.InstallationSpec
+	DexConfig          DexConfig
+	ClusterDomain      string
+	DeleteDex          bool
+	TLSKeyPair         certificatemanagement.KeyPairInterface
+	DNSLocalCacheState dns.DNSNodeLocalCacheState
 }
 
 type dexComponent struct {
@@ -361,7 +363,7 @@ func (c *dexComponent) configMap() *corev1.ConfigMap {
 
 func (c *dexComponent) allowTigeraNetworkPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,

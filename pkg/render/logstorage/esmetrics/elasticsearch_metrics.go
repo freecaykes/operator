@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2021-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	v3 "github.com/tigera/api/pkg/apis/projectcalico/v3"
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -61,6 +62,7 @@ type Config struct {
 	ClusterDomain        string
 	ServerTLS            certificatemanagement.KeyPairInterface
 	TrustedBundle        certificatemanagement.TrustedBundle
+	DNSLocalCacheState   dns.DNSNodeLocalCacheState
 }
 
 type elasticsearchMetrics struct {
@@ -210,7 +212,7 @@ func (e *elasticsearchMetrics) allowTigeraPolicy() *v3.NetworkPolicy {
 			Destination: networkpolicy.ESGatewayEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, e.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, e.cfg.Installation.KubernetesProvider == operatorv1.ProviderOpenShift, e.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules,
 		v3.Rule{
 			Action:      v3.Allow,

@@ -1,4 +1,4 @@
-// Copyright (c) 2019,2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2019,2022-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tigera/operator/pkg/dns"
 	"github.com/tigera/operator/pkg/render/common/networkpolicy"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -112,6 +113,7 @@ type IntrusionDetectionConfiguration struct {
 	ClusterDomain      string
 	ESLicenseType      ElasticsearchLicenseType
 	ManagedCluster     bool
+	DNSLocalCacheState dns.DNSNodeLocalCacheState
 
 	// PVC fields Spec fields are immutable, set to true when an existing AD PVC
 	// is not found as to avoid update failures.
@@ -1692,7 +1694,7 @@ func (c *intrusionDetectionComponent) intrusionDetectionControllerAllowTigeraPol
 			},
 		},
 	}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	if c.cfg.ManagedCluster {
 		egressRules = append(egressRules, v3.Rule{
 			Action:      v3.Allow,
@@ -1742,7 +1744,7 @@ func (c *intrusionDetectionComponent) intrusionDetectionControllerAllowTigeraPol
 
 func (c *intrusionDetectionComponent) intrusionDetectionElasticsearchAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, v3.Rule{
 		Action:      v3.Allow,
 		Protocol:    &networkpolicy.TCPProtocol,
@@ -1781,7 +1783,7 @@ func adAPIIngressRuleForDetector(detectorCycle string) v3.Rule {
 
 func (c *intrusionDetectionComponent) adAPIAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, v3.Rule{
 		Action:      v3.Allow,
 		Protocol:    &networkpolicy.TCPProtocol,
@@ -1829,7 +1831,7 @@ func detectorCycleSelector(detectorCycles ...string) string {
 
 func (c *intrusionDetectionComponent) adDetectorAllowTigeraPolicy() *v3.NetworkPolicy {
 	egressRules := []v3.Rule{}
-	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift)
+	egressRules = networkpolicy.AppendDNSEgressRules(egressRules, c.cfg.Openshift, c.cfg.DNSLocalCacheState)
 	egressRules = append(egressRules, []v3.Rule{
 		{
 			Action:      v3.Allow,

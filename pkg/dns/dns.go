@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Tigera, Inc. All rights reserved.
+// Copyright (c) 2020, 2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,13 @@ package dns
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"regexp"
+
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -72,4 +76,26 @@ func GetServiceDNSNames(name, namespace, clusterDomain string) []string {
 		fmt.Sprintf("%s.%s.svc", name, namespace),
 		fmt.Sprintf("%s.%s.svc.%s", name, namespace, clusterDomain),
 	}
+}
+
+func GetClusterDNSService(ctx context.Context, isOpenShift bool) (*corev1.Service, error) {
+
+	clusterDNSServiceName := "kube-dns"
+	if isOpenShift {
+		clusterDNSServiceName = "openshift-dns"
+	}
+
+	clusterDNSService := &corev1.Service{}
+	err := r.client.Get(ctx, client.ObjectKey{Name: clusterDNSServiceName}, clusterDNSService)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterDNSService, err
+}
+
+type DNSNodeLocalCacheState struct {
+	Enabled             bool
+	ClusterDNSServiceIP string
 }

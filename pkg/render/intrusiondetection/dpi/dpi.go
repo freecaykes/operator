@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 Tigera, Inc. All rights reserved.
+// Copyright (c) 2021-2023 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -347,7 +347,7 @@ func (d *dpiComponent) dpiAllowTigeraPolicy() *v3.NetworkPolicy {
 			Destination: networkpolicy.KubeAPIServerServiceSelectorEntityRule,
 		},
 	}
-	egressRules = networkpolicy.AppendServiceSelectorDNSEgressRules(egressRules, d.cfg.Openshift)
+	egressRules = networkpolicy.AppendServiceSelectorDNSEgressRules(egressRules, d.cfg.Openshift, cfg.DNSLocalCacheState)
 
 	if d.cfg.ManagedCluster {
 		egressRules = append(egressRules, v3.Rule{
